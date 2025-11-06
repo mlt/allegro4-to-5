@@ -1725,6 +1725,11 @@ int install_int(void (*proc)(void), long speed){
     return install_int_ex(proc, MSEC_TO_TIMER(speed));
 }
 
+int install_param_int(void (*proc)(void*), void *param, long speed) {
+    ALLEGRO_ERROR("Not implemented\n");
+    return -1;
+}
+
 void remove_int(void (*proc)(void)){
     int i;
 
@@ -1737,6 +1742,10 @@ void remove_int(void (*proc)(void)){
         }
     }
     al_unlock_mutex(timer_mutex);
+}
+
+void remove_param_int(void (*proc)(void*), void *param) {
+    ALLEGRO_ERROR("Not implemented\n");
 }
 
 void push_config_state(){
