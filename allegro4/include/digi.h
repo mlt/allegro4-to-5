@@ -20,6 +20,7 @@
 #define ALLEGRO_DIGI_H
 
 #include "base.h"
+#include <allegro5/allegro_audio.h>
 
 #ifdef __cplusplus
    extern "C" {
@@ -36,6 +37,10 @@ struct ALLEGRO_SAMPLE;
 typedef struct SAMPLE                  /* a sample */
 {
     struct ALLEGRO_SAMPLE * real;
+   /*! Workaround for streaming "samples". The rest of the struct is ignored.
+    * Among others, used with adjust_sample and indirectly with get_audio_stream_buffer.
+    * Should be NULL for normal samples. */
+   ALLEGRO_AUDIO_STREAM *stream;
    int bits;                           /* 8 or 16 */
    int stereo;                         /* sample type flag */
    int freq;                           /* sample frequency */

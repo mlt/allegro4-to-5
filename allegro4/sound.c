@@ -5,7 +5,19 @@
 #include <allegro5/allegro_audio.h>
 #include <allegro5/allegro_acodec.h>
 
+ALLEGRO_DEBUG_CHANNEL("a425")
+
 static int digi_reserve = -1;             /* how many voices to reserve */
+
+void adjust_sample(AL_CONST SAMPLE * spl, int vol, int pan, int freq, int loop) {
+   if (spl->stream) {
+      al_set_audio_stream_playmode(spl->stream, (loop ? ALLEGRO_PLAYMODE_LOOP : ALLEGRO_PLAYMODE_ONCE));
+      al_set_audio_stream_speed(spl->stream, freq / 1000.0f);
+      al_set_audio_stream_pan(spl->stream, (pan - 128) / 128.0f);
+      al_set_audio_stream_gain(spl->stream, vol / 255.0f);
+   } else
+      ALLEGRO_ERROR("Not implemented for non-streaming samples\n");
+}
 
 /* allegro4 uses 0 as ok values */
 static int is_ok(int code){
@@ -49,6 +61,48 @@ static void lazily_create_sample(SAMPLE * sample){
         }
         sample->real = al_create_sample(sample->data, sample->len, sample->freq, depth, channels, false);
     }
+}
+
+AUDIOSTREAM* play_audio_stream(int len, int bits, int stereo, int freq, int vol, int pan)
+{
+   AUDIOSTREAM* stream = al_malloc(sizeof(AUDIOSTREAM));
+   if (!stream) return NULL;
+
+   stream->locked = NULL;
+   /* This is ugly but expected. For example, see adjust_sample() and alogg code.
+    * this is a streaming sample, so sample buffer is irrelevant with a5.
+    */
+   stream->samp = al_malloc(sizeof(SAMPLE));
+   stream->samp->data = NULL; // alogg_get_output_wave_oggstream might return it. Make sure it is NULL.
+   stream->samp->stream = al_create_audio_stream(2, len, freq,
+       ((bits >> 3) - 1) | ALLEGRO_AUDIO_DEPTH_UNSIGNED,
+       stereo ? ALLEGRO_CHANNEL_CONF_2 : ALLEGRO_CHANNEL_CONF_1);
+   if (!al_attach_audio_stream_to_mixer(stream->samp->stream, al_get_default_mixer())) {
+      ALLEGRO_ERROR("Failed to attach output audio stream to mixer!\n");
+      al_destroy_audio_stream(stream->samp->stream);
+      al_free(stream);
+      return NULL;
+   }
+
+   al_set_audio_stream_playing(stream->samp->stream, true);
+   al_set_audio_stream_playmode(stream->samp->stream, ALLEGRO_PLAYMODE_LOOP);
+   al_set_audio_stream_pan(stream->samp->stream, (pan - 128) / 128.0f);
+   al_set_audio_stream_gain(stream->samp->stream, vol / 255.0f);
+   // al_register_event_source(system_event_queue, al_get_audio_stream_event_source(stream->samp->stream));
+
+   return stream;
+}
+
+void stop_audio_stream(AUDIOSTREAM* stream)
+{
+   if (stream) {
+      if (stream->samp) {
+         // al_unregister_event_source(system_event_queue, al_get_audio_stream_event_source(stream->samp->stream));
+         al_destroy_audio_stream(stream->samp->stream);
+         al_free(stream->samp);
+      }
+      al_free(stream);
+   }
 }
 
 int play_sample(AL_CONST SAMPLE * sample, int volume, int pan, int frequency, int loop){
